@@ -1,0 +1,17 @@
+f9dcb0d20f82af7f1571ee49b2a2d2cf *DESCRIPTION
+1394ed138a9f437bf7ccc849b0e77609 *LICENSE
+ac498b5604eb98b31d6932666f7b03aa *NAMESPACE
+1774bd665f5702f7b814e8459d2d7193 *R/BayesianOptimization.R
+aae77af069ed72c059dd181f76e907e2 *R/KFold.R
+c23a9ce97121924a05ff946a294e4149 *R/Utility.R
+a91eab318c2cc71e962a834f12028c51 *R/Utility_Max.R
+4542eb69b3af1407c750d5633f2a86e2 *R/Utils.R
+c18c34623870bf6d3beb7670a5013a51 *R/rBayesianOptimization.R
+400ce034e0024d87fc17455194bd434c *man/BayesianOptimization.Rd
+f903eb3e98054a2981d8fbedcd0df2d2 *man/KFold.Rd
+806c7f7e2dcac6ed6f239df8ae1db475 *man/Matrix_runif.Rd
+ba9a044d20280c87206aeb00988415d8 *man/Min_Max_Inverse_Scale_Vec.Rd
+7d6f3eeea0f3a4e1bc14363b6648fd4a *man/Min_Max_Scale_Mat.Rd
+aa0cd5d2f8f2038e25fcb072bd2fcb0d *man/Utility.Rd
+c6dba81aa3ce99c793e1f23e4abb8113 *man/Utility_Max.Rd
+820fe274bc431ae1a9ba82a0f3e6889c *man/rBayesianOptimization.Rd
