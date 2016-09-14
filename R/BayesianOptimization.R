@@ -8,7 +8,11 @@
 #'   the validation/cross-validation prediction for ensembling/stacking.
 #' @param bounds A named list of lower and upper bounds for each hyperparameter.
 #'   The names of the list should be identical to the arguments of FUN.
+#'   All the sample points in init_grid_dt should be in the range of bounds.
 #'   Please use "L" suffix to indicate integer hyperparameter.
+#' @param init_grid_dt User specified points to sample the target function, should
+#'   be a \code{data.frame} or \code{data.table} with identical column names as bounds.
+#'   User can add one "Value" column at the end, if target function is pre-sampled.
 #' @param init_points Number of randomly chosen points to sample the
 #'   target function before Bayesian Optimization fitting the Gaussian Process.
 #' @param n_iter Total number of times the Bayesian Optimization is to repeated.
@@ -18,10 +22,12 @@
 #'   \item \code{ei} Expected Improvement
 #'   \item \code{poi} Probability of Improvement
 #' }
-#' @param kappa tunable parameter kappa to balance exploitation against exploration,
+#' @param kappa tunable parameter kappa of GP Upper Confidence Bound, to balance exploitation against exploration,
 #'   increasing kappa will make the optimized hyperparameters pursuing exploration.
-#' @param eps tunable parameter theta to balance exploitation against exploration,
+#' @param eps tunable parameter epsilon of Expected Improvement and Probability of Improvement, to balance exploitation against exploration,
 #'   increasing epsilon will make the optimized hyperparameters are more spread out across the whole range.
+#' @param kernel Kernel (aka correlation function) for the underlying Gaussian Process. This parameter should be a list
+#'   that specifies the type of correlation function along with the smoothness parameter. Popular choices are square exponential (default) or matern 5/2
 #' @param verbose Whether or not to print progress.
 #' @param ... Other arguments passed on to \code{\link{GP_fit}}.
 #' @return a list of Bayesian Optimization result is returned:
@@ -71,31 +77,61 @@
 #'                                 bounds = list(max.depth = c(2L, 6L),
 #'                                               min_child_weight = c(1L, 10L),
 #'                                               subsample = c(0.5, 0.8)),
-#'                                 init_points = 10, n_iter = 20,
+#'                                 init_grid_dt = NULL, init_points = 10, n_iter = 20,
 #'                                 acq = "ucb", kappa = 2.576, eps = 0.0,
 #'                                 verbose = TRUE)
 #' }
-#' @importFrom magrittr %>%
+#' @importFrom magrittr %>% %T>% extract extract2 inset
+#' @importFrom data.table data.table setnames set setDT :=
 #' @export
 
-BayesianOptimization <- function(FUN, bounds, init_points, n_iter, acq = "ucb", kappa = 2.576, eps = 0.0, verbose = TRUE, ...) {
+BayesianOptimization <- function(FUN, bounds, init_grid_dt = NULL, init_points = 0, n_iter, acq = "ucb", kappa = 2.576, eps = 0.0, kernel = list(type = "exponential", power = 2), verbose = TRUE, ...) {
   # Preparation
+  ## DT_bounds
   DT_bounds <- data.table(Parameter = names(bounds),
-                          Lower = sapply(bounds, magrittr::extract2, 1),
-                          Upper = sapply(bounds, magrittr::extract2, 2),
+                          Lower = sapply(bounds, extract2, 1),
+                          Upper = sapply(bounds, extract2, 2),
                           Type = sapply(bounds, class))
-  DT_history <- data.table(matrix(-Inf, nrow = init_points + n_iter, ncol = length(bounds) + 2)) %>%
-    setnames(., old = names(.), new = c("Round", names(bounds), "Value"))
-  Pred_list <- vector(mode = "list", length = init_points + n_iter)
+  ## init_grid_dt
+  setDT(init_grid_dt)
+  if (nrow(init_grid_dt) != 0) {
+    if (identical(names(init_grid_dt), DT_bounds[, Parameter]) == TRUE) {
+      init_grid_dt[, Value := -Inf]
+    } else if (identical(names(init_grid_dt), c(DT_bounds[, Parameter], "Value")) == TRUE) {
+      paste(nrow(init_grid_dt), "points in hyperparameter space were pre-sampled\n", sep = " ") %>%
+        cat(.)
+    } else {
+      stop("bounds and init_grid_dt should be compatible")
+    }
+  }
+  ## init_points_dt
+  init_points_dt <- Matrix_runif(n = init_points, lower = DT_bounds[, Lower], upper = DT_bounds[, Upper]) %>%
+    data.table(.) %T>%
+    setnames(., old = names(.), new = DT_bounds[, Parameter]) %T>% {
+      if (any(DT_bounds[, Type] == "integer")) {
+        set(.,
+            j = DT_bounds[Type == "integer", Parameter],
+            value = round(extract(., j = DT_bounds[Type == "integer", Parameter], with = FALSE)))
+      } else {
+        .
+      }
+    } %T>%
+    extract(., j = Value:=-Inf)
+  ## iter_points_dt
+  iter_points_dt <- data.table(matrix(-Inf, nrow = n_iter, ncol = nrow(DT_bounds) + 1)) %>%
+    setnames(., old = names(.), new = c(DT_bounds[, Parameter], "Value"))
+  ## DT_history
+  DT_history <- rbind(init_grid_dt, init_points_dt, iter_points_dt) %>%
+    cbind(data.table(Round = 1:nrow(.)), .)
+  ## Pred_list
+  Pred_list <- vector(mode = "list", length = nrow(DT_history))
   # Initialization
-  for (i in 1:init_points) {
-    # Random Sample Point
-    Sys.sleep(time = 1)
-    set.seed(as.numeric(Sys.time()))
-    This_Par <- Matrix_runif(n = 1, lower = DT_bounds[, Lower], upper = DT_bounds[, Upper]) %>%
-      as.vector(.) %>%
-      magrittr::inset(., DT_bounds[, Type] == "integer", round(magrittr::extract(., DT_bounds[, Type] == "integer"))) %>%
-      magrittr::set_names(., DT_bounds[, Parameter])
+  for (i in 1:(nrow(init_grid_dt) + nrow(init_points_dt))) {
+    if (is.infinite(DT_history[i, Value]) == TRUE) {
+      This_Par <- DT_history[i, DT_bounds[, Parameter], with = FALSE]
+    } else {
+      next
+    }
     # Function Evaluation
     This_Log <- utils::capture.output({
       This_Time <- system.time({
@@ -103,9 +139,10 @@ BayesianOptimization <- function(FUN, bounds, init_points, n_iter, acq = "ucb", 
       })
     })
     # Saving History and Prediction
-    data.table::set(DT_history, i = as.integer(i),
-                    j = names(DT_history),
-                    value = as.list(c(Round = i, This_Par, Value = This_Score_Pred$Score)))
+    data.table::set(DT_history,
+                    i = as.integer(i),
+                    j = "Value",
+                    value = as.list(c(This_Score_Pred$Score)))
     Pred_list[[i]] <- This_Score_Pred$Pred
     # Printing History
     if (verbose == TRUE) {
@@ -118,35 +155,42 @@ BayesianOptimization <- function(FUN, bounds, init_points, n_iter, acq = "ucb", 
     }
   }
   # Optimization
-  for (j in (init_points + 1):(init_points + n_iter)) {
+  for (j in (nrow(init_grid_dt) + nrow(init_points_dt) + 1):nrow(DT_history)) {
+    if (nrow(iter_points_dt) == 0) {
+      next
+    }
     # Fitting Gaussian Process
     Par_Mat <- Min_Max_Scale_Mat(as.matrix(DT_history[1:(j - 1), DT_bounds[, Parameter], with = FALSE]),
                                  lower = DT_bounds[, Lower],
                                  upper = DT_bounds[, Upper])
     Rounds_Unique <- setdiff(1:(j - 1), which(duplicated(Par_Mat) == TRUE))
     Value_Vec <- DT_history[1:(j - 1), Value]
-    GP <- GPfit::GP_fit(X = Par_Mat[Rounds_Unique, ],
-                        Y = Value_Vec[Rounds_Unique], ...)
+    GP_Log <- utils::capture.output({
+      GP <- GPfit::GP_fit(X = Par_Mat[Rounds_Unique, ],
+                          Y = Value_Vec[Rounds_Unique],
+                          corr = kernel, ...)
+    })
     # Minimizing Negative Utility Function
     Next_Par <- Utility_Max(DT_bounds, GP, acq = acq, y_max = max(DT_history[, Value]), kappa = kappa, eps = eps) %>%
       Min_Max_Inverse_Scale_Vec(., lower = DT_bounds[, Lower], upper = DT_bounds[, Upper]) %>%
-      magrittr::inset(., DT_bounds[, Type] == "integer", round(magrittr::extract(., DT_bounds[, Type] == "integer"))) %>%
-      magrittr::set_names(., DT_bounds[, Parameter])
+      magrittr::set_names(., DT_bounds[, Parameter]) %>%
+      inset(., DT_bounds[Type == "integer", Parameter], round(extract(., DT_bounds[Type == "integer", Parameter])))
     # Function Evaluation
-    This_Log <- utils::capture.output({
-      This_Time <- system.time({
+    Next_Log <- utils::capture.output({
+      Next_Time <- system.time({
         Next_Score_Pred <- do.call(what = FUN, args = as.list(Next_Par))
       })
     })
     # Saving History and Prediction
-    data.table::set(DT_history, i = as.integer(j),
-                    j = names(DT_history),
-                    value = as.list(c(Round = j, Next_Par, Value = Next_Score_Pred$Score)))
+    data.table::set(DT_history,
+                    i = as.integer(j),
+                    j = c(DT_bounds[, Parameter], "Value"),
+                    value = as.list(c(Next_Par, Value = Next_Score_Pred$Score)))
     Pred_list[[j]] <- Next_Score_Pred$Pred
     # Printing History
     if (verbose == TRUE) {
       paste(c("elapsed", names(DT_history)),
-            c(format(This_Time["elapsed"], trim = FALSE, digits = 0, nsmall = 2),
+            c(format(Next_Time["elapsed"], trim = FALSE, digits = 0, nsmall = 2),
               format(DT_history[j, "Round", with = FALSE], trim = FALSE, digits = 0, nsmall = 0),
               format(DT_history[j, -"Round", with = FALSE], trim = FALSE, digits = 0, nsmall = 4)), sep = " = ", collapse = "\t") %>%
         cat(., "\n")
@@ -155,7 +199,7 @@ BayesianOptimization <- function(FUN, bounds, init_points, n_iter, acq = "ucb", 
   # Computing Result
   Best_Par <- as.numeric(DT_history[which.max(Value), DT_bounds[, Parameter], with = FALSE]) %>%
     magrittr::set_names(., DT_bounds[, Parameter])
-  Best_Value <- max(DT_history[, Value])
+  Best_Value <- max(DT_history[, Value], na.rm = TRUE)
   Pred_DT <- data.table::as.data.table(Pred_list)
   Result <- list(Best_Par = Best_Par,
                  Best_Value = Best_Value,

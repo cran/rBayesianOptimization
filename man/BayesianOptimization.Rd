@@ -4,8 +4,9 @@
 \alias{BayesianOptimization}
 \title{Bayesian Optimization}
 \usage{
-BayesianOptimization(FUN, bounds, init_points, n_iter, acq = "ucb",
-  kappa = 2.576, eps = 0, verbose = TRUE, ...)
+BayesianOptimization(FUN, bounds, init_grid_dt = NULL, init_points = 0,
+  n_iter, acq = "ucb", kappa = 2.576, eps = 0, kernel = list(type =
+  "exponential", power = 2), verbose = TRUE, ...)
 }
 \arguments{
 \item{FUN}{The function to be maximized. This Function should return a named list with 2 components.
@@ -14,7 +15,12 @@ the validation/cross-validation prediction for ensembling/stacking.}
 
 \item{bounds}{A named list of lower and upper bounds for each hyperparameter.
 The names of the list should be identical to the arguments of FUN.
+All the sample points in init_grid_dt should be in the range of bounds.
 Please use "L" suffix to indicate integer hyperparameter.}
+
+\item{init_grid_dt}{User specified points to sample the target function, should
+be a \code{data.frame} or \code{data.table} with identical column names as bounds.
+User can add one "Value" column at the end, if target function is pre-sampled.}
 
 \item{init_points}{Number of randomly chosen points to sample the
 target function before Bayesian Optimization fitting the Gaussian Process.}
@@ -28,11 +34,14 @@ target function before Bayesian Optimization fitting the Gaussian Process.}
   \item \code{poi} Probability of Improvement
 }}
 
-\item{kappa}{tunable parameter kappa to balance exploitation against exploration,
+\item{kappa}{tunable parameter kappa of GP Upper Confidence Bound, to balance exploitation against exploration,
 increasing kappa will make the optimized hyperparameters pursuing exploration.}
 
-\item{eps}{tunable parameter theta to balance exploitation against exploration,
+\item{eps}{tunable parameter epsilon of Expected Improvement and Probability of Improvement, to balance exploitation against exploration,
 increasing epsilon will make the optimized hyperparameters are more spread out across the whole range.}
+
+\item{kernel}{Kernel (aka correlation function) for the underlying Gaussian Process. This parameter should be a list
+that specifies the type of correlation function along with the smoothness parameter. Popular choices are square exponential (default) or matern 5/2}
 
 \item{verbose}{Whether or not to print progress.}
 
@@ -89,7 +98,7 @@ OPT_Res <- BayesianOptimization(xgb_cv_bayes,
                                 bounds = list(max.depth = c(2L, 6L),
                                               min_child_weight = c(1L, 10L),
                                               subsample = c(0.5, 0.8)),
-                                init_points = 10, n_iter = 20,
+                                init_grid_dt = NULL, init_points = 10, n_iter = 20,
                                 acq = "ucb", kappa = 2.576, eps = 0.0,
                                 verbose = TRUE)
 }
