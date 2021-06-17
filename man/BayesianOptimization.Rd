@@ -4,9 +4,19 @@
 \alias{BayesianOptimization}
 \title{Bayesian Optimization}
 \usage{
-BayesianOptimization(FUN, bounds, init_grid_dt = NULL, init_points = 0,
-  n_iter, acq = "ucb", kappa = 2.576, eps = 0, kernel = list(type =
-  "exponential", power = 2), verbose = TRUE, ...)
+BayesianOptimization(
+  FUN,
+  bounds,
+  init_grid_dt = NULL,
+  init_points = 0,
+  n_iter,
+  acq = "ucb",
+  kappa = 2.576,
+  eps = 0,
+  kernel = list(type = "exponential", power = 2),
+  verbose = TRUE,
+  ...
+)
 }
 \arguments{
 \item{FUN}{The function to be maximized. This Function should return a named list with 2 components.
@@ -80,9 +90,9 @@ dtrain <- xgb.DMatrix(agaricus.train$data,
                       label = agaricus.train$label)
 cv_folds <- KFold(agaricus.train$label, nfolds = 5,
                   stratified = TRUE, seed = 0)
-xgb_cv_bayes <- function(max.depth, min_child_weight, subsample) {
+xgb_cv_bayes <- function(max_depth, min_child_weight, subsample) {
   cv <- xgb.cv(params = list(booster = "gbtree", eta = 0.01,
-                             max_depth = max.depth,
+                             max_depth = max_depth,
                              min_child_weight = min_child_weight,
                              subsample = subsample, colsample_bytree = 0.3,
                              lambda = 1, alpha = 0,
@@ -90,12 +100,12 @@ xgb_cv_bayes <- function(max.depth, min_child_weight, subsample) {
                              eval_metric = "auc"),
                data = dtrain, nround = 100,
                folds = cv_folds, prediction = TRUE, showsd = TRUE,
-               early.stop.round = 5, maximize = TRUE, verbose = 0)
-  list(Score = cv$dt[, max(test.auc.mean)],
+               early_stopping_rounds = 5, maximize = TRUE, verbose = 0)
+  list(Score = cv$evaluation_log$test_auc_mean[cv$best_iteration],
        Pred = cv$pred)
 }
 OPT_Res <- BayesianOptimization(xgb_cv_bayes,
-                                bounds = list(max.depth = c(2L, 6L),
+                                bounds = list(max_depth = c(2L, 6L),
                                               min_child_weight = c(1L, 10L),
                                               subsample = c(0.5, 0.8)),
                                 init_grid_dt = NULL, init_points = 10, n_iter = 20,
@@ -106,4 +116,3 @@ OPT_Res <- BayesianOptimization(xgb_cv_bayes,
 \references{
 Jasper Snoek, Hugo Larochelle, Ryan P. Adams (2012) \emph{Practical Bayesian Optimization of Machine Learning Algorithms}
 }
-
