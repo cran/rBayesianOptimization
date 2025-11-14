@@ -29,7 +29,7 @@
 #' @param kernel Kernel (aka correlation function) for the underlying Gaussian Process. This parameter should be a list
 #'   that specifies the type of correlation function along with the smoothness parameter. Popular choices are square exponential (default) or matern 5/2
 #' @param verbose Whether or not to print progress.
-#' @param ... Other arguments passed on to \code{\link{GP_fit}}.
+#' @param ... Other arguments passed on to \code{\link[GPfit]{GP_fit}}.
 #' @return a list of Bayesian Optimization result is returned:
 #' \itemize{
 #'   \item \code{Best_Par} a named vector of the best hyperparameter set found

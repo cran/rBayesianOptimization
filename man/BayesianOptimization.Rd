@@ -55,7 +55,7 @@ that specifies the type of correlation function along with the smoothness parame
 
 \item{verbose}{Whether or not to print progress.}
 
-\item{...}{Other arguments passed on to \code{\link{GP_fit}}.}
+\item{...}{Other arguments passed on to \code{\link[GPfit]{GP_fit}}.}
 }
 \value{
 a list of Bayesian Optimization result is returned:

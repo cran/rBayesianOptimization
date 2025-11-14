@@ -1,13 +1,13 @@
-5055642362b1ebbb199b2e15674c89ff *DESCRIPTION
+4855e9cce5e95ee7cbdf99a840f0339f *DESCRIPTION
 dea07cd6a0710377f069289152ee6d4a *NAMESPACE
-c9b47f872a985ec888b82e0e036210da *R/BayesianOptimization.R
+2c1002d9e02c07e4a532f02499f2b5a2 *R/BayesianOptimization.R
 33b0658d52babe1cc49d712cc0314da8 *R/KFold.R
 ec3f16e16a3707cf3ee9efcac012129c *R/Utility.R
 6d7e17a248f7cd8c1c84c2582dd26e34 *R/Utility_Max.R
 2e5af2c44d974c2b1e39db0ebe6d108d *R/Utils.R
 42eea8406b8f9524b0d2e59ed10e2353 *R/rBayesianOptimization.R
 6ab8593051537cca1874dd6a80a3bfb8 *README.md
-c7667c3b1f881aa646d9d7b565a5d367 *man/BayesianOptimization.Rd
+c2708cc4ce1e99af6e3a2deddccef4cd *man/BayesianOptimization.Rd
 571e8a45f04d36d4adb51f6b0e5c9830 *man/KFold.Rd
 0235bc562928bc3b9416ebd1c451f6d9 *man/Matrix_runif.Rd
 11ecac3ae0afe8ebb126718e84203750 *man/Min_Max_Inverse_Scale_Vec.Rd
